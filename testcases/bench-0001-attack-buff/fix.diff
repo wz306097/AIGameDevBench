@@ -1,0 +1,9 @@
+diff --git a/data/elite.json b/data/elite.json
+--- a/data/elite.json
++++ b/data/elite.json
+@@ -1,4 +1,4 @@
+ {
+   "name": "Elite Slime",
+-  "attack": 50
++  "attack": 60
+ }

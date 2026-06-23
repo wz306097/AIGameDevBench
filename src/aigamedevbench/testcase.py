@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+CATEGORIES = {
+    "behavior_logic",
+    "intent_translation",
+    "precise_edit",
+    "architecture",
+    "visual_audio",
+}
+
+VERIFIER_TYPES = {
+    "godot_scenetree",
+    "py_config",
+    "py_tscn_diff",
+    "py_gdscript_ast",
+    "visual_static",
+    "interaction_routing",
+}
+
+
+@dataclass
+class Testcase:
+    id: str
+    category: str
+    baseline_ref: str
+    task: str
+    verifier_type: str
+    verifier_entry: str
+    scoring_mode: str
+    dir: Path
+    source_repo: str | None = None
+    provenance: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "category": self.category,
+            "baseline_ref": self.baseline_ref,
+            "task": self.task,
+            "verifier_type": self.verifier_type,
+            "verifier_entry": self.verifier_entry,
+            "scoring_mode": self.scoring_mode,
+            "source_repo": self.source_repo,
+            "provenance": self.provenance,
+        }
+
+
+def load_testcase(dir: Path) -> Testcase:
+    manifest = dir / "testcase.toml"
+    if not manifest.exists():
+        raise FileNotFoundError(f"no testcase.toml in {dir}")
+    data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    tc = data["testcase"]
+    verifier = data["verifier"]
+    scoring = data.get("scoring", {})
+    category = tc["category"]
+    if category not in CATEGORIES:
+        raise ValueError(f"invalid category '{category}' (allowed: {sorted(CATEGORIES)})")
+    vtype = verifier["type"]
+    if vtype not in VERIFIER_TYPES:
+        raise ValueError(f"invalid verifier type '{vtype}'")
+    return Testcase(
+        id=tc["id"],
+        category=category,
+        baseline_ref=tc["baseline_ref"],
+        task=tc["task"],
+        verifier_type=vtype,
+        verifier_entry=verifier["entry"],
+        scoring_mode=scoring.get("mode", "checkpoints"),
+        dir=dir,
+        source_repo=tc.get("source_repo"),
+        provenance=data.get("provenance", {}),
+    )
+
+
+def discover_testcases(root: Path) -> list[Testcase]:
+    out: list[Testcase] = []
+    for child in sorted(root.iterdir()):
+        if child.is_dir() and (child / "testcase.toml").exists():
+            out.append(load_testcase(child))
+    return out

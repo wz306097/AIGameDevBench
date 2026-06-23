@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aigamedevbench"
+version = "0.1.0"
+description = "SWE-bench-style controlled benchmark for AI Godot game development"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "godot-parser>=0.1.6",
+    "gdtoolkit>=4.0",
+    "networkx>=3.0",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+aigdbench = "aigamedevbench.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aigamedevbench"]

@@ -1,0 +1,25 @@
+[testcase]
+id = "bench-0001-attack-buff"
+category = "intent_translation"
+# Commit in the SOURCE game repo that the runner checks out as the starting point.
+# Replace with a real commit hash from the repo you run this against.
+baseline_ref = "REPLACE_WITH_BASELINE_COMMIT_SHA"
+source_repo = "godot-creature-sim"
+task = """
+设计师说:"新出的精英怪攻击力要比基础值高 20%。"
+基础攻击力是 50,请把数据改对。
+"""
+
+[verifier]
+# Pure-Python verifier — no Godot binary required.
+type = "py_config"
+# Informational label; py_config reads expected.json, not this file.
+entry = "expected.json"
+
+[scoring]
+mode = "fields"
+
+[provenance]
+author = "joey"
+created = "2026-06-23"
+notes = "Demo testcase. Golden answer = 60 (50 * 1.2). Must differ from base 50."

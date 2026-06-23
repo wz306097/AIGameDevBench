@@ -1,0 +1,13 @@
+{
+  "fields": [
+    {
+      "name": "elite_attack_is_base_plus_20pct",
+      "aliases": ["attack", "attack_power", "atk"],
+      "files_glob": "data/**/*.{json,tres}",
+      "expected": 60,
+      "tol": 0.001,
+      "base": 50,
+      "must_differ_from_base": true
+    }
+  ]
+}
