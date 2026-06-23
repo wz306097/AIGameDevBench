@@ -100,6 +100,7 @@ def test_command_driver_missing_binary_does_not_raise(tmp_path):
                                timeout=30, log_dir=tmp_path / "logs")
     drv.run("task", ws)  # must not raise
     assert drv.last_outcome["exit_code"] == -1
+    assert drv.last_outcome["timed_out"] is False
 
 
 def test_command_driver_produces_detected_change(tmp_path):
@@ -127,7 +128,12 @@ def test_command_driver_no_shell_injection(tmp_path):
     drv = CommandHarnessDriver(_echo_argv_harness(out), timeout=30,
                                log_dir=tmp_path / "logs")
     # If the task were ever interpolated into a shell, this would delete canary.
-    drv.run(f"; rm -rf {canary}", ws)
+    # Use platform-specific shell command so the test is probative on all platforms.
+    if sys.platform == "win32":
+        payload = f"& del {canary}"      # cmd.exe command separator + delete
+    else:
+        payload = f"; rm -rf {canary}"   # POSIX shell separator + delete
+    drv.run(payload, ws)
     assert canary.read_text(encoding="utf-8") == "alive"
     # And the malicious string arrives intact as one argv element.
-    assert out.read_text(encoding="utf-8").splitlines() == [f"; rm -rf {canary}"]
+    assert out.read_text(encoding="utf-8").splitlines() == [payload]
