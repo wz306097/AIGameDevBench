@@ -115,13 +115,16 @@ class CommandHarnessDriver:
         wall_time = time.perf_counter() - start
 
         if log_path is not None:
-            log_path.write_text(
-                f"$ {' '.join(argv)}\n"
-                f"exit_code={exit_code} timed_out={timed_out} "
-                f"wall_time={wall_time:.3f}\n"
-                f"--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n",
-                encoding="utf-8",
-            )
+            try:
+                log_path.write_text(
+                    f"$ {' '.join(argv)}\n"
+                    f"exit_code={exit_code} timed_out={timed_out} "
+                    f"wall_time={wall_time:.3f}\n"
+                    f"--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}\n",
+                    encoding="utf-8",
+                )
+            except Exception:  # a logging failure must not abort the batch
+                pass
 
         self.last_outcome = {
             "exit_code": exit_code,
