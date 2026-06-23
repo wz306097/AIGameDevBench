@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from click.testing import CliRunner
 
@@ -61,9 +62,6 @@ def test_run_noop_fails(tmp_path, monkeypatch):
     assert "fail" in result.output.lower()
 
 
-import sys
-
-
 def test_run_command_driver_writes_report(tmp_path, monkeypatch):
     repo, tcs = _repo_and_testcases(tmp_path)
     monkeypatch.chdir(repo)
@@ -93,7 +91,7 @@ def test_run_command_driver_writes_report(tmp_path, monkeypatch):
     assert data["mean_score"] == 1.0
     tc0 = data["testcases"][0]
     assert tc0["score"] == 1.0
-    assert "wall_time" in tc0 and "exit_code" in tc0 and "log_path" in tc0
+    assert "wall_time" in tc0 and "exit_code" in tc0 and "log_path" in tc0 and "timed_out" in tc0
     assert tc0["exit_code"] == 0
 
 

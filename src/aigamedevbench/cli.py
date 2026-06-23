@@ -86,7 +86,7 @@ def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
         total += result.score
         click.echo(f"{tc.id}\t{tc.category}\t{result.verifier_result.status}\t{result.score:.2f}")
         record = result.to_dict()
-        if isinstance(drv, CommandHarnessDriver) and drv.last_outcome:
+        if isinstance(drv, CommandHarnessDriver) and drv.last_outcome is not None:
             record.update(drv.last_outcome)
         records.append(record)
 
