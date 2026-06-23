@@ -59,3 +59,50 @@ def test_run_noop_fails(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "bench-0001" in result.output
     assert "fail" in result.output.lower()
+
+
+import sys
+
+
+def test_run_command_driver_writes_report(tmp_path, monkeypatch):
+    repo, tcs = _repo_and_testcases(tmp_path)
+    monkeypatch.chdir(repo)
+    # A fake harness that sets attack to 60 by overwriting the json file.
+    script = (
+        "import pathlib, json; "
+        "p=pathlib.Path('data/char.json'); "
+        "p.write_text(json.dumps({'attack': 60})+chr(10))"
+    )
+    cmd = f'{sys.executable} -c "{script}"'
+    report = tmp_path / "report.json"
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        "run", "--testcases-dir", str(tcs),
+        "--driver", "command",
+        "--harness-cmd", cmd,
+        "--harness", "fake-harness",
+        "--timeout", "60",
+        "--log-dir", str(tmp_path / "logs"),
+        "--report", str(report),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "bench-0001" in result.output
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["harness"] == "fake-harness"
+    assert data["count"] == 1
+    assert data["mean_score"] == 1.0
+    tc0 = data["testcases"][0]
+    assert tc0["score"] == 1.0
+    assert "wall_time" in tc0 and "exit_code" in tc0 and "log_path" in tc0
+    assert tc0["exit_code"] == 0
+
+
+def test_run_command_driver_requires_cmd(tmp_path, monkeypatch):
+    repo, tcs = _repo_and_testcases(tmp_path)
+    monkeypatch.chdir(repo)
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        "run", "--testcases-dir", str(tcs), "--driver", "command",
+    ])
+    assert result.exit_code == 0
+    assert "harness-cmd" in result.output.lower()
