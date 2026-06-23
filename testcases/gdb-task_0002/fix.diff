@@ -1,0 +1,67 @@
+diff --git a/scenes/projectile.tscn b/scenes/projectile.tscn
+index cb411e2..6098dfa 100644
+--- a/scenes/projectile.tscn
++++ b/scenes/projectile.tscn
+@@ -21,3 +21,5 @@ shape = SubResource("CircleShape2D_m5xgo")
+ [node name="Sprite2D" type="Sprite2D" parent="."]
+ texture = SubResource("AtlasTexture_xamc7")
+ texture_filter = 2
++
++[connection signal="area_entered" from="." to="." method="_on_area_entered"]
+diff --git a/scripts/main.gd b/scripts/main.gd
+index 76f443b..e36bc93 100644
+--- a/scripts/main.gd
++++ b/scripts/main.gd
+@@ -7,3 +7,8 @@ extends Node2D
+ func _ready():
+ 	if quest_resource:
+ 		QuestManager.add_quest(quest_name, quest_resource)
++	QuestManager.step_updated.connect(_on_step_updated)
++
++func _on_step_updated(step):
++	if step.step_type == QuestManager.INCREMENTAL_STEP:
++		quest_progress_label.text = "Enemies %02d/%02d" % [step.collected, step.required]
+diff --git a/scripts/projectile.gd b/scripts/projectile.gd
+index 97dbb00..deb0d9b 100644
+--- a/scripts/projectile.gd
++++ b/scripts/projectile.gd
+@@ -1,33 +1,16 @@
+ extends Area2D
+ 
+-@export var speed := 400.0
+-
+-# Reference to the QuestManager
+-var quest_manager
+-
+-func _ready():
+-	# Get the QuestManager instance
+-	quest_manager = get_node("/root/QuestManager")
+-	if quest_manager == null:
+-		# If QuestManager is not found in the scene tree, try to load it from addons
+-		var quest_manager_script = preload("res://addons/quest_manager/QuestManager.gd")
+-		quest_manager = quest_manager_script.new()
+-		# Add it to the scene tree if needed
+-		get_tree().root.add_child(quest_manager)
+-		quest_manager.name = "QuestManager"
++@export var speed := 600.0
++const QUEST_ID := "shoot_em_up"
++const STEP_ID := "kill_step"
+ 
+ func _physics_process(delta):
+ 	position += Vector2(0, -speed) * delta
+-	
+-	# Remove projectile if it goes far off screen (50 pixels above the top)
+ 	if position.y < -50:
+ 		queue_free()
+ 
+-func _on_area_2d_area_entered(area):
+-	# Check if the area that entered is an enemy
++func _on_area_entered(area):
+ 	if area.is_in_group("enemy"):
+-		# Call QuestManager to progress the kill step
+-		if quest_manager != null:
+-			quest_manager.progress_quest("shoot_em_up_quest", "kill")
+-		# Queue the projectile to free itself after hitting an enemy
++		QuestManager.progress_quest(QUEST_ID, STEP_ID)
++		area.queue_free()
+ 		queue_free()

@@ -1,0 +1,81 @@
+[gd_scene load_steps=5 format=3 uid="uid://codex0207main"]
+
+[ext_resource type="Script" path="res://scripts/entities/tank/tank.gd" id="1_tank"]
+[ext_resource type="PackedScene" uid="uid://codex0207bulletgt" path="res://scenes/entities/tank/weapon/bullet.tscn" id="2_bullet"]
+[ext_resource type="PackedScene" uid="uid://codexcratebulletstub" path="res://scenes/entities/world/crate.tscn" id="3_crate"]
+
+[sub_resource type="GDScript" id="GDScript_demo"]
+script/source = "extends Node2D
+
+@export var bullet_scene: PackedScene
+var tank: Tank
+var time_elapsed := 0.0
+
+func _ready():
+	# Position camera to see the action
+	var camera = Camera2D.new()
+	camera.enabled = true
+	add_child(camera)
+
+	# Get tank reference
+	tank = $Tank
+
+	# Spawn initial bullet
+	spawn_bullet()
+
+func _process(delta):
+	time_elapsed += delta
+	# Spawn a new bullet every 2 seconds
+	if time_elapsed > 2.0:
+		time_elapsed = 0.0
+		spawn_bullet()
+
+func spawn_bullet():
+	if bullet_scene:
+		var bullet = bullet_scene.instantiate()
+		bullet.position = tank.global_position + Vector2(50, 0)
+		bullet.direction = Vector2.RIGHT
+		bullet.tank = tank
+		add_child(bullet)
+"
+
+[node name="Main" type="Node2D"]
+script = SubResource("GDScript_demo")
+bullet_scene = ExtResource("2_bullet")
+
+[node name="Tank" type="Node2D" parent="."]
+position = Vector2(100, 300)
+script = ExtResource("1_tank")
+
+[node name="TankVisual" type="ColorRect" parent="Tank"]
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+color = Color(0.3, 0.6, 0.9, 1)
+
+[node name="Label" type="Label" parent="Tank"]
+offset_left = -30.0
+offset_top = -40.0
+offset_right = 30.0
+offset_bottom = -20.0
+text = "Tank"
+horizontal_alignment = 1
+
+[node name="Crate1" parent="." instance=ExtResource("3_crate")]
+position = Vector2(400, 250)
+
+[node name="Crate2" parent="." instance=ExtResource("3_crate")]
+position = Vector2(450, 300)
+
+[node name="Crate3" parent="." instance=ExtResource("3_crate")]
+position = Vector2(500, 350)
+
+[node name="Instructions" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 600.0
+offset_bottom = 80.0
+text = "Bullet Collision Test Demo
+Bullets spawn from the tank and travel right.
+They should disappear when hitting crates (and destroy them)."

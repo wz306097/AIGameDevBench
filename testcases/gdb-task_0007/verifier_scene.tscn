@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://cardpiletest"]
+
+[ext_resource type="Script" path="res://__VERIFIER_GD__" id="1_test"]
+[ext_resource type="PackedScene" path="res://scenes/main.tscn" id="1_main"]
+
+[node name="TestRunner" type="Node"]
+script = ExtResource("1_test")
+
+[node name="Main" parent="." instance=ExtResource("1_main")]

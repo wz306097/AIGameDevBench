@@ -1,0 +1,40 @@
+[gd_scene load_steps=7 format=3 uid="uid://d2b4j4rdm7yq4"]
+
+[ext_resource type="Texture2D" uid="uid://cbtofwdqjxux0" path="res://assets/sprites/towerDefense_tile245.png" id="1_4q02p"]
+[ext_resource type="Texture2D" uid="uid://dukflcfuydhv4" path="res://assets/sprites/icon.svg" id="2_2ytsg"]
+[ext_resource type="Script" uid="uid://donep3jvwhxrx" path="res://scripts/enemy.gd" id="3_jdntx"]
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_sugp2"]
+vertices = PackedVector2Array(70.88281, 330.90625, 91.53125, 83.99219, 345.03906, 258.21875, 672.3594, 326.0625, 456.64063, 75.40625, 709.40625, 75.00781)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2), PackedInt32Array(3, 0, 2), PackedInt32Array(3, 2, 4, 5)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(83, 66, 342, 244, 451.02118, 65.42315, 721, 65, 681, 336, 60, 341)])
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_2k51a"]
+radius = 12.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_c8ug1"]
+
+[node name="Main" type="Node2D"]
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+navigation_polygon = SubResource("NavigationPolygon_sugp2")
+
+[node name="Enemy" type="CharacterBody2D" parent="."]
+position = Vector2(200, 180)
+script = ExtResource("3_jdntx")
+
+[node name="Sprite2D" type="Sprite2D" parent="Enemy"]
+texture = ExtResource("1_4q02p")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy"]
+shape = SubResource("CircleShape2D_2k51a")
+
+[node name="Target" type="Area2D" parent="."]
+position = Vector2(520, 180)
+
+[node name="Sprite2D" type="Sprite2D" parent="Target"]
+scale = Vector2(0.15625, 0.15625)
+texture = ExtResource("2_2ytsg")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Target"]
+shape = SubResource("RectangleShape2D_c8ug1")

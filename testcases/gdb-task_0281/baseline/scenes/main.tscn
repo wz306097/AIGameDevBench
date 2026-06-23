@@ -1,0 +1,33 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/main.gd" id="1_main_script"]
+[ext_resource type="Script" path="res://scenes/ui/hand.gd" id="2_hand_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_drop_area"]
+size = Vector2(240, 96)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main_script")
+
+[node name="PlayZone" type="Area2D" parent="."]
+collision_layer = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayZone"]
+position = Vector2(120, 48)
+shape = SubResource("RectangleShape2D_drop_area")
+
+[node name="HUD" type="CanvasLayer" parent="." groups=["overlay_layer"]]
+
+[node name="CardRow" type="HBoxContainer" parent="HUD"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -75.0
+offset_top = -30.0
+offset_right = 75.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+script = ExtResource("2_hand_script")

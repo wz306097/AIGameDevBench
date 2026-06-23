@@ -1,0 +1,72 @@
+diff --git a/scenes/main.tscn b/scenes/main.tscn
+index 5b94b7f..e1c7fa3 100644
+--- a/scenes/main.tscn
++++ b/scenes/main.tscn
+@@ -2,7 +2,7 @@
+ 
+ [ext_resource type="Texture2D" uid="uid://cbtofwdqjxux0" path="res://assets/sprites/towerDefense_tile245.png" id="1_4q02p"]
+ [ext_resource type="Texture2D" uid="uid://dukflcfuydhv4" path="res://assets/sprites/icon.svg" id="2_2ytsg"]
+-[ext_resource type="Script" uid="uid://donep3jvwhxrx" path="res://scripts/enemy.gd" id="3_jdntx"]
++[ext_resource type="Script" uid="uid://iatutq68a7wf" path="res://scripts/enemy.gd" id="3_jdntx"]
+ 
+ [sub_resource type="NavigationPolygon" id="NavigationPolygon_sugp2"]
+ vertices = PackedVector2Array(70.88281, 330.90625, 91.53125, 83.99219, 345.03906, 258.21875, 672.3594, 326.0625, 456.64063, 75.40625, 709.40625, 75.00781)
+@@ -19,9 +19,10 @@ radius = 12.0
+ [node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+ navigation_polygon = SubResource("NavigationPolygon_sugp2")
+ 
+-[node name="Enemy" type="CharacterBody2D" parent="."]
++[node name="Enemy" type="CharacterBody2D" parent="." node_paths=PackedStringArray("target")]
+ position = Vector2(200, 180)
+ script = ExtResource("3_jdntx")
++target = NodePath("../Target")
+ 
+ [node name="Sprite2D" type="Sprite2D" parent="Enemy"]
+ texture = ExtResource("1_4q02p")
+@@ -29,6 +30,15 @@ texture = ExtResource("1_4q02p")
+ [node name="CollisionShape2D" type="CollisionShape2D" parent="Enemy"]
+ shape = SubResource("CircleShape2D_2k51a")
+ 
++[node name="Navigation" type="Node2D" parent="Enemy"]
++
++[node name="NavigationAgent2D" type="NavigationAgent2D" parent="Enemy/Navigation"]
++debug_enabled = true
++
++[node name="Timer" type="Timer" parent="Enemy/Navigation"]
++wait_time = 0.1
++autostart = true
++
+ [node name="Target" type="Area2D" parent="."]
+ position = Vector2(520, 180)
+ 
+@@ -38,3 +48,5 @@ texture = ExtResource("2_2ytsg")
+ 
+ [node name="CollisionShape2D" type="CollisionShape2D" parent="Target"]
+ shape = SubResource("RectangleShape2D_c8ug1")
++
++[connection signal="timeout" from="Enemy/Navigation/Timer" to="Enemy" method="_on_timer_timeout"]
+diff --git a/scripts/enemy.gd b/scripts/enemy.gd
+index 727cb99..1724da5 100644
+--- a/scripts/enemy.gd
++++ b/scripts/enemy.gd
+@@ -1,4 +1,18 @@
+ extends CharacterBody2D
+ 
+-func _physics_process(_delta):
+-	pass
++@export var target: Node2D
++
++var speed = 300.0
++var acceleration = 7
++
++@onready var navigation_agent: NavigationAgent2D = $Navigation/NavigationAgent2D
++
++func _physics_process(delta):
++	var direction = Vector2.ZERO
++	direction = navigation_agent.get_next_path_position() - global_position
++	direction = direction.normalized()
++	velocity = velocity.lerp(direction * speed, acceleration * delta)
++	move_and_slide()
++
++func _on_timer_timeout():
++	navigation_agent.target_position = target.global_position

@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/SpriteSheet.png" id="1_lc1yo"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_g9jfh"]
+atlas = ExtResource("1_lc1yo")
+region = Rect2(141, 34, 32, 32)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_d90ph"]
+extents = Vector2(12, 12)
+
+[node name="Enemy" type="Area2D"]
+collision_layer = 2
+collision_mask = 1
+script = null
+groups = ["enemy"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("AtlasTexture_g9jfh")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_d90ph")

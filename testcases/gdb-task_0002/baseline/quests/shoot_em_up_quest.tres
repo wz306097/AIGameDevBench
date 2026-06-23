@@ -1,0 +1,54 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/quest_manager/QuestResource.gd" id="1_u2g5r"]
+
+[resource]
+script = ExtResource("1_u2g5r")
+quest_data = {
+"shoot_em_up": {
+"quest_id": "shoot_em_up",
+"quest_name": "Shoot Em Up",
+"quest_details": "Destroy 5 ships then survive 10 seconds.",
+"quest_rewards": {"money": 50},
+"first_step": "kill_step",
+"next_id": "kill_step",
+"completed": false,
+"failed": false,
+"meta_data": {"group": "Arcade"},
+"metadata": {"group": "Arcade"},
+"quest_steps": {
+"kill_step": {
+"id": "kill_step",
+"quest_id": "shoot_em_up",
+"step_type": "incremental_step",
+"details": "Destroy 5 ships",
+"required": 5,
+"collected": 0,
+"completed": false,
+"item_name": "Kill",
+"next_id": "timer_step"
+},
+"timer_step": {
+"id": "timer_step",
+"quest_id": "shoot_em_up",
+"step_type": "timer_step",
+"details": "Survive 10 seconds",
+"total_time": 10,
+"time": 10,
+"is_count_down": true,
+"fail_on_timeout": true,
+"completed": false,
+"next_id": "end_step"
+},
+"end_step": {
+"id": "end_step",
+"quest_id": "shoot_em_up",
+"step_type": "end",
+"details": "Complete",
+"completed": false,
+"next_id": "end_step"
+}
+}
+}
+}
+editor_data = {}
