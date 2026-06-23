@@ -29,10 +29,11 @@ class PatchDriver:
 class CommandHarnessDriver:
     """Runs an arbitrary CLI harness inside the workspace to complete the task.
 
-    The command template is shlex-split, then each token has placeholders
-    substituted: {task} (raw task text as a single arg), {task_file} (path to
-    workspace/TASK.md), {workspace} (workspace path). No shell is used, so the
-    task text can contain any characters without injection risk.
+    The command template is shlex-split (template paths should use forward slashes
+    on Windows), then each token has placeholders substituted: {task} (raw task
+    text as a single arg), {task_file} (path to workspace/TASK.md), {workspace}
+    (workspace path). No shell is used, so the task text can contain any
+    characters without injection risk.
     """
 
     def __init__(self, cmd_template: str, timeout: float = 600.0,
@@ -55,6 +56,9 @@ class CommandHarnessDriver:
         # mangling Windows paths in the template (e.g. sys.executable). Normalize the
         # template (NOT the substituted values) to forward slashes; placeholders are
         # filled in after the split, so task content and injection-safety are unaffected.
+        # Limitation: every backslash in the template is treated as a path separator, so
+        # backslashes that are NOT path separators (UNC paths like \\server\share, or
+        # regex escapes) will be altered — pass those via a wrapper script or use forward slashes.
         for token in shlex.split(self.cmd_template.replace("\\", "/")):
             for ph, val in repl.items():
                 token = token.replace(ph, val)

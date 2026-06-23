@@ -46,6 +46,8 @@ def test_command_driver_writes_task_file(tmp_path):
                                log_dir=tmp_path / "logs")
     drv.run("do the thing", ws)
     assert (ws / "TASK.md").read_text(encoding="utf-8") == "do the thing"
+    assert drv.last_outcome["exit_code"] == 0
+    assert out.exists()
 
 
 def test_command_driver_task_is_single_arg(tmp_path):
