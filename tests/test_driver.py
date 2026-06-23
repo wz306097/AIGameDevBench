@@ -120,6 +120,29 @@ def test_command_driver_produces_detected_change(tmp_path):
     assert "made.txt" in status
 
 
+def test_command_driver_malformed_template_does_not_raise(tmp_path):
+    ws = tmp_path / "ws"; ws.mkdir()
+    # Unbalanced quote -> shlex.split raises ValueError. Must be caught and
+    # recorded as a failed outcome, not propagated to abort the batch.
+    drv = CommandHarnessDriver('mytool "unterminated {task}',
+                               timeout=30, log_dir=tmp_path / "logs")
+    drv.run("task", ws)  # must not raise
+    assert drv.last_outcome["exit_code"] == -1
+    assert drv.last_outcome["timed_out"] is False
+
+
+def test_command_driver_task_with_placeholder_literal_not_mangled(tmp_path):
+    ws = tmp_path / "ws"; ws.mkdir()
+    out = tmp_path / "argv.txt"
+    drv = CommandHarnessDriver(_echo_argv_harness(out), timeout=30,
+                               log_dir=tmp_path / "logs")
+    # A task that literally mentions another placeholder must be delivered
+    # verbatim, not have that placeholder re-substituted.
+    drv.run("update the {workspace} handling", ws)
+    assert out.read_text(encoding="utf-8").splitlines() == \
+        ["update the {workspace} handling"]
+
+
 def test_command_driver_no_shell_injection(tmp_path):
     ws = tmp_path / "ws"; ws.mkdir()
     canary = ws / "canary.txt"
