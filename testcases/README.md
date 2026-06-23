@@ -96,3 +96,43 @@ aigdbench run --testcases-dir "$TCDIR" --testcase bench-0001-attack-buff \
 - 入口脚本 `aigdbench` 若不在 PATH,用
   `python -c "from aigamedevbench.cli import main; main([...])"` 调。
 - `--testcases-dir` 传 Windows 原生路径(`C:\...`)。
+
+## 两种起点形态(source_kind)
+
+| source_kind | 起点 | 谁用 |
+|---|---|---|
+| `git`(默认) | 源 repo 的一个 commit,runner 用 `git worktree` checkout | 原生 testcase,必须在目标游戏 repo 内跑 |
+| `folder` | testcase 自带的 `baseline/` 子目录(自包含 Godot 项目),runner 拷进临时区并 `git init` | 从 GameDevBench 导入的任务,可独立跑(无需在游戏 repo 内) |
+
+## 从 GameDevBench 导入任务(folder + godot_scene_assert)
+
+GameDevBench 每个 task 是自包含项目 + 一个黄金验证器(`scenes/test.tscn` + `scripts/test.gd`,
+打印 `VALIDATION_PASSED/FAILED`)。导入脚本把它转成本仓的 folder-type testcase:
+
+```
+gdb-task_0002/
+  testcase.toml          # source_kind="folder", verifier.type="godot_scene_assert"
+  baseline/              # 起点项目(已剔除 test.* / .godot / 嵌套重复目录 / 泄答案的 *.md+task_config.json)
+  verifier_scene.tscn    # 由 test.tscn 改来,脚本路径换成占位符 __VERIFIER_GD__
+  verifier.gd            # 由 test.gd 转译:extends Node,逐 checkpoint 打印 {"assertions":[...]}
+  fix.diff               # baseline → ground-truth 的 diff,自测用
+```
+
+**为什么 verifier 走场景模式而非 `--script`**:被测代码常用 autoload 单例全局名
+(如 `QuestManager.progress_quest(...)`)。`--script`(`extends SceneTree`)模式下 autoload
+不加载,全局名无法解析。`godot_scene_assert` 用 `godot --headless --path <ws> <scene>` 跑场景,
+让 autoload 生效。
+
+导入:
+
+```bash
+python scripts/import_gamedevbench.py --gdb ../GameDevBench --out testcases --tasks task_0002 task_0003
+```
+
+脚本会跳过 `requires_display` 任务(首批只接 headless 可验证的纯代码/gameplay 逻辑)。
+`test.gd → verifier.gd` 默认产单 checkpoint 兜底;要逐断言部分得分需手工拆分
+(见 `gdb-task_0002/verifier.gd` 的多 checkpoint 范例)。
+
+> 注意:GameDevBench 的起点 task 可能本身是"部分错误的实现"(如 task_0002 已有离屏移除 +
+> UI,但方法名/quest id 错)。这类任务 `noop` 在 checkpoints 模式下不一定是干净的 0 分;
+> **硬不变量是 `patch fix.diff → 1.00`**。
