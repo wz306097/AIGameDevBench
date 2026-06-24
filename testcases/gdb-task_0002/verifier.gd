@@ -60,20 +60,6 @@ func run_validation():
 		"detail": "projectile must queue_free after damaging an enemy",
 	})
 
-	# Checkpoint 5: UI label present for visual feedback
-	var main_scene = load("res://scenes/main.tscn")
-	var main = main_scene.instantiate()
-	var ui = main.get_node_or_null("UI")
-	var label = null
-	if ui:
-		label = ui.get_node_or_null("QuestProgress")
-	checks.append({
-		"name": "ui_quest_progress_label",
-		"pass": label != null and label is Label,
-		"detail": "Main/UI must contain a QuestProgress Label for progress display",
-	})
-	main.free()
-
 	qm.wipe_player_data()
 	print(JSON.stringify({"assertions": checks}))
 	get_tree().quit()

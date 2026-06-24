@@ -18,10 +18,6 @@ func _ready():
 
 func _physics_process(delta):
 	position += Vector2(0, -speed) * delta
-	
-	# Remove projectile if it goes far off screen (50 pixels above the top)
-	if position.y < -50:
-		queue_free()
 
 func _on_area_2d_area_entered(area):
 	# Check if the area that entered is an enemy
