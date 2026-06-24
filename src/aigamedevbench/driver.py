@@ -42,9 +42,15 @@ class CommandHarnessDriver:
     callback, so a harness that blocks (e.g. on its own permission prompt) is
     visible immediately instead of only after the overall timeout. The harness's
     stdin is closed: an interactive prompt then gets EOF and should fail fast
-    rather than hang. Two watchdogs guard against a silent hang: stall_timeout
-    (no output for that long -> abort) and a set of approval-prompt markers that
-    abort the run early with a clear hint.
+    rather than hang.
+
+    Guards against a hang: the overall `timeout`, an approval-prompt marker set
+    that aborts early with a clear hint, and an OPTIONAL `stall_timeout`
+    (no output for that long -> abort). stall_timeout defaults to 0 (disabled)
+    because many harnesses (e.g. `claude -p` in plain text mode) emit nothing
+    until they finish — for those, "no output" means "still working", not
+    "hung", so a stall guard would kill long-but-healthy tasks. Only enable it
+    for harnesses that stream progress incrementally.
     """
 
     # Substrings (matched case-insensitively) that mean the harness is blocked
@@ -59,7 +65,7 @@ class CommandHarnessDriver:
     )
 
     def __init__(self, cmd_template: str, timeout: float = 600.0,
-                 log_dir: Path | None = None, stall_timeout: float = 120.0,
+                 log_dir: Path | None = None, stall_timeout: float = 0.0,
                  on_line: Callable[[str], None] | None = None):
         self.cmd_template = cmd_template
         self.timeout = timeout

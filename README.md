@@ -97,12 +97,18 @@ Pass whatever flag puts your harness in unattended/auto-approve mode:
 
 The harness's output is **streamed live to the screen** (prefixed with the
 testcase id) so a stuck prompt is visible the instant it appears — disable with
-`--no-stream`. Two watchdogs abort a hung harness early instead of waiting out
-the full `--timeout`: an approval-prompt detector (recognises "waiting on your
-permission approval" and similar, aborts immediately with a hint) and a
-`--stall-timeout` (default 120s with no output → abort). On any failure
-(timeout, stall, approval-block, or non-zero exit) the log tail is printed to
-the screen, the testcase scores 0, and the batch continues.
+`--no-stream`. Hang protection: the overall `--timeout` (set it generously —
+large multi-file tasks legitimately take several minutes) and an approval-prompt
+detector that recognises "waiting on your permission approval" and similar and
+aborts immediately with a hint. On any failure (timeout, approval-block, or
+non-zero exit) the log tail is printed to the screen, the testcase scores 0, and
+the batch continues.
+
+> **`--stall-timeout` is off by default.** It aborts a harness that produces no
+> output for N seconds — but `claude -p` (and most non-streaming harnesses) print
+> nothing until they finish, so "no output" means "still working", and a stall
+> guard would kill long-but-healthy tasks. Only enable it for harnesses that
+> stream progress incrementally. Use `--timeout` as the real ceiling instead.
 
 Full output also goes to `--log-dir`; `--report` writes a JSON summary
 (per-testcase score, status, wall_time, exit_code, stalled/blocked flags, log

@@ -71,9 +71,11 @@ def list_cmd(testcases_dir: str):
 @click.option("--harness-cmd", "harness_cmd", default=None,
               help="Command template for --driver command, e.g. 'claude -p {task}'")
 @click.option("--timeout", default=600.0, type=float, help="Per-testcase harness timeout (s)")
-@click.option("--stall-timeout", "stall_timeout", default=120.0, type=float,
-              help="Abort a harness that produces no output for this many seconds "
-                   "(catches interactive prompts/hangs). 0 disables.")
+@click.option("--stall-timeout", "stall_timeout", default=0.0, type=float,
+              help="Abort a harness that produces no output for this many seconds. "
+                   "Default 0 (disabled): harnesses like 'claude -p' print nothing "
+                   "until done, so a stall guard would kill long healthy tasks. "
+                   "Only set this for harnesses that stream progress incrementally.")
 @click.option("--log-dir", "log_dir", default="harness-logs", type=click.Path(),
               help="Where to write harness stdout/stderr logs")
 @click.option("--report", "report_file", default=None, type=click.Path(),
