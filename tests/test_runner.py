@@ -54,3 +54,37 @@ def test_correct_patch_passes(tmp_path):
     result = run_testcase(repo, tc, PatchDriver(patch), "patch", config={})
     assert result.score == 1.0
     assert result.verifier_result.status == "pass"
+
+
+def _folder_testcase(tmp_path) -> Testcase:
+    """A folder-type testcase using the pure-Python py_config verifier, so the
+    runner's folder_workspace branch can be exercised without a Godot binary."""
+    tc_dir = tmp_path / "tc-folder"
+    baseline = tc_dir / "baseline"
+    (baseline / "data").mkdir(parents=True)
+    (baseline / "data" / "char.json").write_text(json.dumps({"attack": 50}) + "\n", encoding="utf-8")
+    (tc_dir / "expected.json").write_text(json.dumps({"fields": [
+        {"name": "attack", "aliases": ["attack"], "files_glob": "**/*.json",
+         "expected": 60, "tol": 1e-6, "base": 50, "must_differ_from_base": True},
+    ]}), encoding="utf-8")
+    return Testcase("gdb-x", "behavior_logic", "", "task", "py_config",
+                    "expected.json", "fields", tc_dir, source_kind="folder")
+
+
+def test_folder_testcase_uses_folder_workspace(tmp_path):
+    tc = _folder_testcase(tmp_path)
+    # repo_root is None: folder-type must not need a game repo.
+    result = run_testcase(None, tc, NoOpDriver(), "noop", config={})
+    assert result.score == 0.0
+
+    patch = (
+        "diff --git a/data/char.json b/data/char.json\n"
+        "--- a/data/char.json\n"
+        "+++ b/data/char.json\n"
+        "@@ -1 +1 @@\n"
+        '-{"attack": 50}\n'
+        '+{"attack": 60}\n'
+    )
+    result = run_testcase(None, tc, PatchDriver(patch), "patch", config={})
+    assert result.score == 1.0
+    assert result.verifier_result.status == "pass"

@@ -1,0 +1,22 @@
+[testcase]
+id = "gdb-task_0002"
+category = "behavior_logic"
+source_kind = "folder"
+source_repo = "GameDevBench:task_0002"
+task = """
+Make the projectile advance the Shoot Em Up quest by calling QuestManager.progress_quest with the kill step each time it overlaps an enemy, queue_free itself after the hit, and ensure it also removes itself when it travels far off screen (50 pixels).
+"""
+
+[verifier]
+type = "godot_scene_assert"
+entry = "verifier_scene.tscn"
+
+[scoring]
+mode = "checkpoints"
+
+[provenance]
+imported_from = "GameDevBench"
+task_id = 2
+name = "Projectile Step Tracker"
+tutorial_source = "YouTube: Chevifier - Quest Manager For Godot 4"
+video_id = "9tu-Q-T--mY"

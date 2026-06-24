@@ -7,8 +7,9 @@ from aigamedevbench.driver import HarnessDriver
 from aigamedevbench.result import VerifierResult
 from aigamedevbench.testcase import Testcase
 from aigamedevbench.verifiers.base import get_verifier
-from aigamedevbench.workspace import isolated_workspace
+from aigamedevbench.workspace import isolated_workspace, folder_workspace
 from aigamedevbench.validation import run_validation
+from contextlib import contextmanager
 
 # Import verifiers package so all @register decorators run.
 import aigamedevbench.verifiers  # noqa: F401
@@ -34,10 +35,22 @@ class RunResult:
         }
 
 
-def run_testcase(repo_root: Path, testcase: Testcase, driver: HarnessDriver,
+@contextmanager
+def _workspace_for(repo_root: Path | None, testcase: Testcase):
+    if testcase.source_kind == "folder":
+        with folder_workspace(testcase.dir / "baseline") as ws:
+            yield ws
+    else:
+        if repo_root is None:
+            raise ValueError(f"git-type testcase '{testcase.id}' requires a repo root")
+        with isolated_workspace(repo_root, testcase.baseline_ref) as ws:
+            yield ws
+
+
+def run_testcase(repo_root: Path | None, testcase: Testcase, driver: HarnessDriver,
                  harness_id: str, config: dict | None = None) -> RunResult:
     config = config or {}
-    with isolated_workspace(repo_root, testcase.baseline_ref) as workspace:
+    with _workspace_for(repo_root, testcase) as workspace:
         driver.run(testcase.task, workspace)
 
         changed_files = _list_changed(workspace)

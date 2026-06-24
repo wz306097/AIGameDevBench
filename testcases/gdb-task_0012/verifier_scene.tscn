@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://codex0207testr"]
+
+[ext_resource type="Script" uid="uid://codex0207test" path="res://__VERIFIER_GD__" id="1_test"]
+[ext_resource type="PackedScene" uid="uid://codex0207main" path="res://scenes/main.tscn" id="2_main"]
+
+[node name="TestRunner" type="Node"]
+script = ExtResource("1_test")
+
+[node name="Main" parent="." instance=ExtResource("2_main")]

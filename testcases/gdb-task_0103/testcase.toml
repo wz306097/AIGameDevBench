@@ -1,0 +1,22 @@
+[testcase]
+id = "gdb-task_0103"
+category = "behavior_logic"
+source_kind = "folder"
+source_repo = "GameDevBench:task_0103"
+task = """
+Under Main, finish the navigation system for Enemy: add a Node2D child named Navigation that contains a NavigationAgent2D node named NavigationAgent2D (path_postprocessing set to Corridor and debug_enabled enabled) and a Timer named Timer (wait_time 0.1, autostart enabled), then connect the Timer timeout to Enemy._on_timer_timeout. Attach scripts/enemy.gd to Enemy, set its exported target to the node Target, and implement pathfinding logic that updates velocity using NavigationAgent2D.get_next_path_position() and does move_and_slide() in _physics_process, and updates NavigationAgent2D.target_position to the Target global position on timeout.
+"""
+
+[verifier]
+type = "godot_scene_assert"
+entry = "verifier_scene.tscn"
+
+[scoring]
+mode = "checkpoints"
+
+[provenance]
+imported_from = "GameDevBench"
+task_id = 103
+name = "NavigationAgent2D Enemy Chase"
+tutorial_source = "YouTube: Cashew OldDew - Tilemap PATHFINDING in Godot 4.2"
+video_id = "ztX4OV6Syn8"

@@ -1,0 +1,56 @@
+diff --git a/components/finite_state_machine.gd b/components/finite_state_machine.gd
+index 06e1017..d54a3c2 100644
+--- a/components/finite_state_machine.gd
++++ b/components/finite_state_machine.gd
+@@ -1,13 +1,15 @@
+ class_name FiniteStateMachine
+ extends RefCounted
+ 
+-# TODO: Add state_changed signal
++signal state_changed(new_state: State)
+ 
+ var state: State
+ 
+ 
+ func change_state(new_state: State) -> void:
+-	# TODO: Implement state transition logic
+-	# Should call exit() on old state, enter() on new state,
+-	# update the state property, and emit state_changed signal
+-	pass
++    if state:
++        state.exit()
++    if new_state:
++        new_state.enter()
++    state = new_state
++    emit_signal("state_changed", state)
+diff --git a/components/state.gd b/components/state.gd
+index 8d97ded..c37fd27 100644
+--- a/components/state.gd
++++ b/components/state.gd
+@@ -5,21 +5,20 @@ var actor: Node
+ 
+ 
+ func _init(new_actor: Node) -> void:
+-	# TODO: Store the actor reference
+-	pass
++    actor = new_actor
+ 
+ 
+ func physics_process(_delta: float) -> void:
+-	pass
++    pass
+ 
+ 
+ func process(_delta: float) -> void:
+-	pass
++    pass
+ 
+ 
+ func enter() -> void:
+-	pass
++    pass
+ 
+ 
+ func exit() -> void:
+-	pass
++    pass

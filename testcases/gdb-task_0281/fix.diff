@@ -1,0 +1,219 @@
+diff --git a/scenes/card_ui/card_state_machine.gd b/scenes/card_ui/card_state_machine.gd
+index d660b3a..4db24fe 100644
+--- a/scenes/card_ui/card_state_machine.gd
++++ b/scenes/card_ui/card_state_machine.gd
+@@ -9,24 +9,44 @@ var states := {}
+ func init(card_ui) -> void:
+ 	for child in get_children():
+ 		states[child.state] = child
++		child.transition_requested.connect(_on_transition_requested)
+ 		child.card_ui = card_ui
+ 
++	if initial_state:
++		initial_state.enter()
++		current_state = initial_state
+ 
+-func on_input(_event: InputEvent) -> void:
+-	pass
+ 
++func on_input(event: InputEvent) -> void:
++	if current_state:
++		current_state.on_input(event)
+ 
+-func on_gui_input(_event: InputEvent) -> void:
+-	pass
++
++func on_gui_input(event: InputEvent) -> void:
++	if current_state:
++		current_state.on_gui_input(event)
+ 
+ 
+ func on_mouse_entered() -> void:
+-	pass
++	if current_state:
++		current_state.on_mouse_entered()
+ 
+ 
+ func on_mouse_exited() -> void:
+-	pass
++	if current_state:
++		current_state.on_mouse_exited()
++
++
++func _on_transition_requested(from, to: int) -> void:
++	if from != current_state:
++		return
++
++	var new_state = states.get(to)
++	if new_state == null:
++		return
+ 
++	if current_state:
++		current_state.exit()
+ 
+-func _on_transition_requested(_from, _to: int) -> void:
+-	pass
++	new_state.enter()
++	current_state = new_state
+diff --git a/scenes/card_ui/card_states/card_base_state.gd b/scenes/card_ui/card_states/card_base_state.gd
+index eedf3f4..ccd6bcc 100644
+--- a/scenes/card_ui/card_states/card_base_state.gd
++++ b/scenes/card_ui/card_states/card_base_state.gd
+@@ -1 +1,17 @@
+ extends "res://scenes/card_ui/card_states/card_state.gd"
++
++
++func enter() -> void:
++	if card_ui.tween and card_ui.tween.is_running():
++		card_ui.tween.kill()
++
++	card_ui.state_label.text = "Base"
++	card_ui.reparent_requested.emit(card_ui)
++	card_ui.drop_point_detector.monitoring = false
++	card_ui.pivot_offset = Vector2.ZERO
++
++
++func on_gui_input(event: InputEvent) -> void:
++	if event.is_action_pressed("left_mouse"):
++		card_ui.pivot_offset = event.global_position - card_ui.global_position
++		transition_requested.emit(self, State.CLICKED)
+diff --git a/scenes/card_ui/card_states/card_clicked_state.gd b/scenes/card_ui/card_states/card_clicked_state.gd
+index eedf3f4..1458ed9 100644
+--- a/scenes/card_ui/card_states/card_clicked_state.gd
++++ b/scenes/card_ui/card_states/card_clicked_state.gd
+@@ -1 +1,12 @@
+ extends "res://scenes/card_ui/card_states/card_state.gd"
++
++
++func enter() -> void:
++	card_ui.state_label.text = "Clicked"
++	card_ui.drop_point_detector.monitoring = true
++	card_ui.original_index = card_ui.get_index()
++
++
++func on_input(event: InputEvent) -> void:
++	if event is InputEventMouseMotion:
++		transition_requested.emit(self, State.DRAGGING)
+diff --git a/scenes/card_ui/card_states/card_dragging_state.gd b/scenes/card_ui/card_states/card_dragging_state.gd
+index b9e8d07..71af96b 100644
+--- a/scenes/card_ui/card_states/card_dragging_state.gd
++++ b/scenes/card_ui/card_states/card_dragging_state.gd
+@@ -1,3 +1,27 @@
+ extends "res://scenes/card_ui/card_states/card_state.gd"
+ 
+ const DRAG_MINIMUM_THRESHOLD := 0.04
++
++var minimum_drag_time_elapsed := false
++
++
++func enter() -> void:
++	card_ui.state_label.text = "Dragging"
++
++	var ui_layer = card_ui.home_parent.get_parent()
++	if ui_layer:
++		card_ui.reparent(ui_layer)
++
++	minimum_drag_time_elapsed = false
++	var threshold_timer := get_tree().create_timer(DRAG_MINIMUM_THRESHOLD, false)
++	threshold_timer.timeout.connect(func(): minimum_drag_time_elapsed = true)
++
++
++func on_input(event: InputEvent) -> void:
++	if event is InputEventMouseMotion:
++		card_ui.global_position = event.global_position - card_ui.pivot_offset
++
++	if event.is_action_pressed("right_mouse"):
++		transition_requested.emit(self, State.BASE)
++	elif minimum_drag_time_elapsed and event.is_action_released("left_mouse"):
++		transition_requested.emit(self, State.RELEASED)
+diff --git a/scenes/card_ui/card_states/card_released_state.gd b/scenes/card_ui/card_states/card_released_state.gd
+index eedf3f4..299a061 100644
+--- a/scenes/card_ui/card_states/card_released_state.gd
++++ b/scenes/card_ui/card_states/card_released_state.gd
+@@ -1 +1,19 @@
+ extends "res://scenes/card_ui/card_states/card_state.gd"
++
++var played := false
++
++
++func enter() -> void:
++	card_ui.state_label.text = "Released"
++	played = false
++
++	if not card_ui.targets.is_empty():
++		played = true
++		card_ui.play()
++
++
++func on_input(_event: InputEvent) -> void:
++	if played:
++		return
++
++	transition_requested.emit(self, State.BASE)
+diff --git a/scenes/card_ui/card_ui.gd b/scenes/card_ui/card_ui.gd
+index 786c848..b8fe03c 100644
+--- a/scenes/card_ui/card_ui.gd
++++ b/scenes/card_ui/card_ui.gd
+@@ -17,23 +17,23 @@ var tween: Tween
+ 
+ 
+ func _ready() -> void:
+-	pass
++	card_state_machine.init(self)
+ 
+ 
+-func _input(_event: InputEvent) -> void:
+-	pass
++func _input(event: InputEvent) -> void:
++	card_state_machine.on_input(event)
+ 
+ 
+-func _on_gui_input(_event: InputEvent) -> void:
+-	pass
++func _on_gui_input(event: InputEvent) -> void:
++	card_state_machine.on_gui_input(event)
+ 
+ 
+ func _on_mouse_entered() -> void:
+-	pass
++	card_state_machine.on_mouse_entered()
+ 
+ 
+ func _on_mouse_exited() -> void:
+-	pass
++	card_state_machine.on_mouse_exited()
+ 
+ 
+ func animate_to_position(new_position: Vector2, duration: float) -> void:
+@@ -53,9 +53,10 @@ func _set_card_title(value: String) -> void:
+ 	title_label.text = card_title
+ 
+ 
+-func _on_drop_point_detector_area_entered(_area: Area2D) -> void:
+-	pass
++func _on_drop_point_detector_area_entered(area: Area2D) -> void:
++	if not targets.has(area):
++		targets.append(area)
+ 
+ 
+-func _on_drop_point_detector_area_exited(_area: Area2D) -> void:
+-	pass
++func _on_drop_point_detector_area_exited(area: Area2D) -> void:
++	targets.erase(area)
+diff --git a/scenes/ui/hand.gd b/scenes/ui/hand.gd
+index 1471c75..bf59de5 100644
+--- a/scenes/ui/hand.gd
++++ b/scenes/ui/hand.gd
+@@ -6,5 +6,12 @@ const CARD_UI_SCENE := preload("res://scenes/card_ui/card_ui.tscn")
+ func add_card(card_title: String) -> void:
+ 	var new_card_ui = CARD_UI_SCENE.instantiate()
+ 	add_child(new_card_ui)
++	new_card_ui.reparent_requested.connect(_on_card_ui_reparent_requested)
+ 	new_card_ui.home_parent = self
+ 	new_card_ui.card_title = card_title
++
++
++func _on_card_ui_reparent_requested(child) -> void:
++	child.reparent(self)
++	var new_index := clampi(child.original_index, 0, get_child_count())
++	move_child.call_deferred(child, new_index)

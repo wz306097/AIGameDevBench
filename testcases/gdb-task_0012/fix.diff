@@ -1,0 +1,85 @@
+diff --git a/scenes/main.tscn b/scenes/main.tscn
+index 6dd0d22..4b58ebc 100644
+--- a/scenes/main.tscn
++++ b/scenes/main.tscn
+@@ -1,8 +1,8 @@
+ [gd_scene load_steps=5 format=3 uid="uid://codex0207main"]
+ 
+-[ext_resource type="Script" path="res://scripts/entities/tank/tank.gd" id="1_tank"]
+-[ext_resource type="PackedScene" uid="uid://codex0207bulletgt" path="res://scenes/entities/tank/weapon/bullet.tscn" id="2_bullet"]
+-[ext_resource type="PackedScene" uid="uid://codexcratebulletstub" path="res://scenes/entities/world/crate.tscn" id="3_crate"]
++[ext_resource type="Script" uid="uid://bfhn68lid8rkc" path="res://scripts/entities/tank/tank.gd" id="1_tank"]
++[ext_resource type="PackedScene" uid="uid://du1f4hrp31wgh" path="res://scenes/entities/tank/weapon/bullet.tscn" id="2_bullet"]
++[ext_resource type="PackedScene" uid="uid://b8ojx2ib5gard" path="res://scenes/entities/world/crate.tscn" id="3_crate"]
+ 
+ [sub_resource type="GDScript" id="GDScript_demo"]
+ script/source = "extends Node2D
+@@ -44,7 +44,7 @@ script = SubResource("GDScript_demo")
+ bullet_scene = ExtResource("2_bullet")
+ 
+ [node name="Tank" type="Node2D" parent="."]
+-position = Vector2(100, 300)
++position = Vector2(38, 70)
+ script = ExtResource("1_tank")
+ 
+ [node name="TankVisual" type="ColorRect" parent="Tank"]
+@@ -53,6 +53,7 @@ offset_top = -15.0
+ offset_right = 15.0
+ offset_bottom = 15.0
+ color = Color(0.3, 0.6, 0.9, 1)
++metadata/_edit_use_anchors_ = true
+ 
+ [node name="Label" type="Label" parent="Tank"]
+ offset_left = -30.0
+@@ -61,21 +62,13 @@ offset_right = 30.0
+ offset_bottom = -20.0
+ text = "Tank"
+ horizontal_alignment = 1
++metadata/_edit_use_anchors_ = true
+ 
+ [node name="Crate1" parent="." instance=ExtResource("3_crate")]
+-position = Vector2(400, 250)
++position = Vector2(338, 20)
+ 
+ [node name="Crate2" parent="." instance=ExtResource("3_crate")]
+-position = Vector2(450, 300)
++position = Vector2(388, 70)
+ 
+ [node name="Crate3" parent="." instance=ExtResource("3_crate")]
+-position = Vector2(500, 350)
+-
+-[node name="Instructions" type="Label" parent="."]
+-offset_left = 20.0
+-offset_top = 20.0
+-offset_right = 600.0
+-offset_bottom = 80.0
+-text = "Bullet Collision Test Demo
+-Bullets spawn from the tank and travel right.
+-They should disappear when hitting crates (and destroy them)."
++position = Vector2(438, 120)
+diff --git a/scripts/entities/tank/weapon/bullet.gd b/scripts/entities/tank/weapon/bullet.gd
+index e7d4499..78e2651 100644
+--- a/scripts/entities/tank/weapon/bullet.gd
++++ b/scripts/entities/tank/weapon/bullet.gd
+@@ -1,5 +1,20 @@
+ extends Area2D
+ class_name Bullet
+ 
+-var direction: Vector2
++const SPEED := 500
++
++var direction: Vector2 = Vector2.ZERO
+ var tank: Tank
++
++func _physics_process(delta):
++    if direction == Vector2.ZERO:
++        return
++    position += direction.normalized() * SPEED * delta
++
++func _on_area_entered(_area):
++    queue_free()
++
++func _on_body_entered(body):
++    if body is Crate:
++        body.destroy()
++    queue_free()

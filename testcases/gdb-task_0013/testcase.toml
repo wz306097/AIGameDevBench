@@ -1,0 +1,22 @@
+[testcase]
+id = "gdb-task_0013"
+category = "behavior_logic"
+source_kind = "folder"
+source_repo = "GameDevBench:task_0013"
+task = """
+Implement res://components/state.gd so State._init(new_actor) stores the provided actor reference, and complete res://components/finite_state_machine.gd by declaring a state_changed(new_state) signal plus a change_state(new_state) method that calls exit() on the previous state, enter() on the new state, updates the state property, and emits state_changed after every transition.
+"""
+
+[verifier]
+type = "godot_scene_assert"
+entry = "verifier_scene.tscn"
+
+[scoring]
+mode = "checkpoints"
+
+[provenance]
+imported_from = "GameDevBench"
+task_id = 13
+name = "Implement FSM Foundations"
+tutorial_source = "YouTube: GodotGameLab - Godot 4 Autobattler Tutorial: RefCounted, FSM & UnitAI (S02E06)"
+video_id = "m4Bq_xX4eMo"

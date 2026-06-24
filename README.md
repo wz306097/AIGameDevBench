@@ -62,11 +62,30 @@ Expected:
 
 ## Evaluating a real AI harness
 
-Until a native harness driver lands, the loop is:
+Use `--driver command` to run any CLI harness automatically. The driver writes
+the testcase `task` to `workspace/TASK.md`, substitutes placeholders into your
+command template, runs it inside the isolated workspace, and scores whatever it
+changed. Placeholders: `{task}` (the task text as one argument), `{task_file}`
+(path to `TASK.md`), `{workspace}` (the workspace dir).
 
-1. Have the AI complete the testcase `task` starting from `baseline_ref`.
-2. Capture its change: `git diff > ai.diff`.
-3. Score it: `aigdbench run --driver patch --patch ai.diff`.
+```bash
+aigdbench run --testcases-dir ./testcases \
+  --driver command \
+  --harness-cmd 'claude -p {task}' \
+  --harness my-claude-code \
+  --timeout 900 \
+  --godot-binary /path/to/godot \
+  --log-dir ./harness-logs \
+  --report ./report.json
+```
+
+The harness's stdout/stderr go to `--log-dir`; `--report` writes a JSON summary
+(per-testcase score, status, wall_time, exit_code, log path, and overall mean).
+A harness that times out, errors, or exits non-zero scores that testcase 0 and
+the batch continues.
+
+The manual loop still works if you prefer it: complete the task by hand, capture
+`git diff > ai.diff`, and score with `aigdbench run --driver patch --patch ai.diff`.
 
 ## Testcase format
 

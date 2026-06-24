@@ -62,6 +62,65 @@ fix_commit = "fixc"
     assert tc.provenance["fix_commit"] == "fixc"
 
 
+def test_source_kind_defaults_to_git(tmp_path):
+    _write(tmp_path / "bench-git", """
+[testcase]
+id = "bench-git"
+category = "behavior_logic"
+baseline_ref = "abc123"
+task = "t"
+
+[verifier]
+type = "godot_scenetree"
+entry = "v.gd"
+
+[scoring]
+mode = "checkpoints"
+""")
+    tc = load_testcase(tmp_path / "bench-git")
+    assert tc.source_kind == "git"
+
+
+def test_folder_source_kind_without_baseline_ref(tmp_path):
+    _write(tmp_path / "gdb-task_0002", """
+[testcase]
+id = "gdb-task_0002"
+category = "behavior_logic"
+source_kind = "folder"
+task = "Make the projectile advance the quest"
+
+[verifier]
+type = "godot_scene_assert"
+entry = "verifier_scene.tscn"
+
+[scoring]
+mode = "checkpoints"
+""")
+    tc = load_testcase(tmp_path / "gdb-task_0002")
+    assert tc.source_kind == "folder"
+    assert tc.baseline_ref == ""
+    assert tc.verifier_type == "godot_scene_assert"
+
+
+def test_invalid_source_kind_rejected(tmp_path):
+    _write(tmp_path / "bad-src", """
+[testcase]
+id = "bad-src"
+category = "behavior_logic"
+source_kind = "svn"
+task = "t"
+
+[verifier]
+type = "godot_scene_assert"
+entry = "v.tscn"
+
+[scoring]
+mode = "checkpoints"
+""")
+    with pytest.raises(ValueError, match="source_kind"):
+        load_testcase(tmp_path / "bad-src")
+
+
 def test_invalid_category_rejected(tmp_path):
     _write(tmp_path / "bad", """
 [testcase]

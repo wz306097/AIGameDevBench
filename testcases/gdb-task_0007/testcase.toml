@@ -1,0 +1,22 @@
+[testcase]
+id = "gdb-task_0007"
+category = "behavior_logic"
+source_kind = "folder"
+source_repo = "GameDevBench:task_0007"
+task = """
+Implement res://scripts/card_pile.gd for the Card Pile resource. Register class_name CardPile, export an Array[Card], and declare the card_pile_size_changed(cards_amount) signal. Provide helpers empty(), draw_card(), add_card(), shuffle(), clear(), and _to_string(). draw_card() must pop the front card, emit the new count, and return the card (or null if empty). add_card() appends a card and emits the new size, shuffle() randomizes the Array in place, clear() empties the pile and emits zero, and _to_string() should list each card as 'index: card_id' on its own line (this should be human readable, so start with 1 index). Use the supplied Card resource for typing.
+"""
+
+[verifier]
+type = "godot_scene_assert"
+entry = "verifier_scene.tscn"
+
+[scoring]
+mode = "checkpoints"
+
+[provenance]
+imported_from = "GameDevBench"
+task_id = 7
+name = "CardPile Resource Utilities"
+tutorial_source = "YouTube: GodotGameLab - Slay the Spire Clone Godot 4 Tutorial: Stats with Resources (04/08)"
+video_id = "8MdvvNUrD3w"
