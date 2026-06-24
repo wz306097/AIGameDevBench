@@ -22,35 +22,40 @@ binary on PATH (pass `--godot-binary` to point elsewhere).
 ## How a benchmark run works
 
 ```
-survey/runner:
-  git worktree add <baseline_ref>      # isolated copy of the starting state
-  driver.run(task, workspace)          # noop | patch | (your AI harness)
-  L0/L1 gate                           # scene loads? no broken refs? else score 0
-  inject golden verifier -> score      # deleted after scoring (anti-gaming)
+runner:
+  prepare isolated workspace            # see "starting state" below
+  driver.run(task, workspace)           # noop | patch | (your AI harness)
+  godot --import (folder-type)          # build the resource cache so scenes load
+  L0/L1 gate                            # scene loads? no broken refs? else score 0
+  inject golden verifier -> score       # deleted after scoring (anti-gaming)
 ```
 
-`run` must be executed **inside the target game repo** (the runner uses
-`git worktree` to check out `baseline_ref`).
+Two starting-state shapes, set per testcase by `source_kind`:
 
-## Quick start (the included demo)
+| `source_kind` | starting state | where you run it |
+|---|---|---|
+| `folder` (the imported `gdb-task_*`) | the testcase's self-contained `baseline/` dir, copied to a temp dir + `git init` | **any directory** |
+| `git` | a commit in the source game repo, checked out via `git worktree` | **inside that game repo** |
+
+So folder-type testcases are self-contained and run anywhere; only git-type
+testcases must be run from inside their target game repo.
+
+## Quick start (a self-contained testcase)
+
+`gdb-task_0002` is a folder-type testcase, so it runs from anywhere with no
+setup. It needs `godot` on PATH (it boots a scene to score).
 
 ```bash
-# 1. make a minimal game repo
-mkdir -p /tmp/game/data && cd /tmp/game
-git init -q && git config user.email d@d.com && git config user.name d
-printf '{\n  "name": "Elite Slime",\n  "attack": 50\n}\n' > data/elite.json
-git add . && git commit -qm baseline
-SHA=$(git rev-parse HEAD)
-
-# 2. point the demo testcase at that commit
-#    edit testcases/bench-0001-attack-buff/testcase.toml -> baseline_ref = "$SHA"
-
-# 3. run it (from inside /tmp/game)
 TCDIR=/path/to/AIGameDevBench/testcases
+
 aigdbench list --testcases-dir "$TCDIR"
-aigdbench run  --testcases-dir "$TCDIR" --testcase bench-0001-attack-buff --driver noop
-aigdbench run  --testcases-dir "$TCDIR" --testcase bench-0001-attack-buff \
-  --driver patch --patch "$TCDIR/bench-0001-attack-buff/fix.diff"
+
+# baseline check: doing nothing must score 0
+aigdbench run --testcases-dir "$TCDIR" --testcase gdb-task_0002 --driver noop
+
+# replay the known-good fix: must score 1
+aigdbench run --testcases-dir "$TCDIR" --testcase gdb-task_0002 \
+  --driver patch --patch "$TCDIR/gdb-task_0002/fix.diff"
 ```
 
 Expected:
