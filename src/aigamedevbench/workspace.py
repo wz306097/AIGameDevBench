@@ -59,4 +59,10 @@ def folder_workspace(baseline_dir: Path) -> Iterator[Path]:
 
 
 def apply_patch(workspace: Path, patch_text: str) -> None:
-    git_run(["apply", "--whitespace=nowarn", "-"], cwd=workspace, input=patch_text)
+    # --ignore-whitespace tolerates CRLF/LF and trailing-whitespace differences
+    # between the patch and the working tree. On Windows a patch generated with
+    # LF (or CRLF) routinely mismatches the checked-out line endings, and a
+    # harness-produced diff may differ in whitespace too; the benchmark scores
+    # the semantic change, so whitespace-only mismatches must not block apply.
+    git_run(["apply", "--whitespace=nowarn", "--ignore-whitespace", "-"],
+            cwd=workspace, input=patch_text)

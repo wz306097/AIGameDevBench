@@ -23,7 +23,68 @@ class VerificationResult:
         }
 
 
+# --- Godot import cache ---
+
+def godot_import(project_root: Path, godot_binary: str = "godot",
+                 timeout: int = 120) -> None:
+    """Build the Godot import cache (.godot/imported/*) for the workspace.
+
+    Folder-type baselines ship without .godot/ (the importer strips it), so any
+    scene referencing an imported resource (a PNG as CompressedTexture2D) fails
+    to load until an import pass runs. This must happen before L0 boots changed
+    scenes AND before the runtime verifier boots its scene; both share the same
+    workspace, so a single pass here covers both. Idempotent: if the cache is
+    already present Godot re-imports nothing. Best-effort — a failure here just
+    leaves the cache absent, and the downstream load error is reported normally.
+    """
+    if shutil.which(godot_binary) is None:
+        return
+    try:
+        subprocess.run(
+            [godot_binary, "--headless", "--path", str(project_root), "--import"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+
 # --- L0: GDScript syntax + headless scene load ---
+
+def _count_paren_depth(content: str) -> int | None:
+    """Net paren depth, ignoring parens inside string literals and # comments.
+
+    Returns the remaining open-paren count (0 = balanced, >0 = unclosed), or
+    None if a ')' ever closes below zero (unmatched ')'). GDScript strings use
+    ' or " (no f-strings); a backslash escapes the next char inside a string.
+    Counting raw characters would false-positive on code like
+    `name.split("(")[0]`, so string/comment regions are skipped.
+    """
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    for char in content:
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\" and quote != "\n":
+                escaped = True  # backslash escapes only inside string literals
+            elif char == quote:
+                quote = None
+            continue
+        if char in ("'", '"'):
+            quote = char
+        elif char == "#":
+            # Comment runs to end of line: treat newline as its closing "quote".
+            quote = "\n"
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                return None
+    return depth
+
 
 def check_gd_syntax(project_root: Path, gd_files: list[str]) -> list[str]:
     issues = []
@@ -33,16 +94,10 @@ def check_gd_syntax(project_root: Path, gd_files: list[str]) -> list[str]:
             issues.append(f"{gd_rel}: file not found")
             continue
         content = gd_path.read_text(encoding="utf-8", errors="replace")
-        paren_depth = 0
-        for i, char in enumerate(content):
-            if char == "(":
-                paren_depth += 1
-            elif char == ")":
-                paren_depth -= 1
-            if paren_depth < 0:
-                issues.append(f"{gd_rel}: unmatched ')' near character {i}")
-                break
-        if paren_depth > 0:
+        paren_depth = _count_paren_depth(content)
+        if paren_depth is None:
+            issues.append(f"{gd_rel}: unmatched ')'")
+        elif paren_depth > 0:
             issues.append(f"{gd_rel}: unclosed '(' ({paren_depth} remaining)")
 
         func_no_colon = re.compile(r"^func\s+\w+\s*\([^)]*\)\s*$", re.MULTILINE)
@@ -62,7 +117,8 @@ def run_l0(project_root: Path, scenes: list[str], godot_binary: str = "godot") -
             try:
                 result = subprocess.run(
                     [godot_binary, "--headless", "--path", str(project_root), scene, "--quit-after", "2"],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True, text=True, encoding="utf-8", errors="replace",
+                    timeout=10,
                 )
                 if result.returncode != 0:
                     issues.append(f"L0 crash: {scene} exited with code {result.returncode}")
@@ -136,6 +192,9 @@ def run_l1(project_root: Path, changed_files: list[str]) -> tuple[bool, list[str
 
 def run_validation(repo_root: Path, changed_files: list[str], config: dict) -> VerificationResult:
     godot_binary = config.get("global", {}).get("godot", {}).get("binary", "godot")
+    # Build the import cache once before any headless boot (L0 here, and the
+    # runtime verifier later) so scenes with imported resources can load.
+    godot_import(repo_root, godot_binary)
     scenes = [f for f in changed_files if f.endswith(".tscn")]
     l0_pass, l0_details = run_l0(repo_root, scenes, godot_binary)
     l1_pass, l1_details = run_l1(repo_root, changed_files)

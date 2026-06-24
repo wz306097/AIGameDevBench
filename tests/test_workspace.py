@@ -83,6 +83,26 @@ def test_folder_workspace_apply_patch(tmp_path):
         assert "# patched" in (ws / "scripts" / "main.gd").read_text(encoding="utf-8")
 
 
+def test_apply_patch_tolerates_crlf_patch_on_lf_tree(tmp_path):
+    # Regression: baseline files are LF but a patch generated on Windows can be
+    # CRLF. Without --ignore-whitespace, git apply rejects it ("patch does not
+    # apply"). The benchmark scores the semantic change, so this must succeed.
+    baseline = tmp_path / "baseline"
+    _make_baseline(baseline)  # writes scripts/main.gd with LF
+    patch_lf = (
+        "diff --git a/scripts/main.gd b/scripts/main.gd\n"
+        "--- a/scripts/main.gd\n"
+        "+++ b/scripts/main.gd\n"
+        "@@ -1 +1,2 @@\n"
+        " extends Node\n"
+        "+# patched\n"
+    )
+    patch_crlf = patch_lf.replace("\n", "\r\n")
+    with folder_workspace(baseline) as ws:
+        apply_patch(ws, patch_crlf)
+        assert "# patched" in (ws / "scripts" / "main.gd").read_text(encoding="utf-8")
+
+
 def test_folder_workspace_missing_dir(tmp_path):
     with pytest.raises(FileNotFoundError):
         with folder_workspace(tmp_path / "nope"):

@@ -64,7 +64,8 @@ def _run_godot_script(testcase: Testcase, workspace: Path,
         proc = subprocess.run(
             [godot_binary, "--headless", "--path", str(workspace),
              "--script", tmp_name],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout,
         )
         checks = parse_assertion_json(proc.stdout)
         if not checks:
@@ -111,7 +112,8 @@ def _run_godot_scene(testcase: Testcase, workspace: Path,
     try:
         proc = subprocess.run(
             [godot_binary, "--headless", "--path", str(workspace), scene_name],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout,
         )
         checks = parse_scene_output(proc.stdout)
         if not checks:
