@@ -95,6 +95,49 @@ def test_run_command_driver_writes_report(tmp_path, monkeypatch):
     assert tc0["exit_code"] == 0
 
 
+def test_run_git_testcase_from_non_git_cwd_does_not_abort_batch(tmp_path, monkeypatch):
+    # Regression: a git-type testcase scored from a non-git cwd used to make
+    # get_repo_root exit 128 and abort the whole batch before any folder-type
+    # testcase ran. Now the git-type case errors individually and the batch
+    # continues.
+    repo, tcs = _repo_and_testcases(tmp_path)
+
+    # Add a self-contained folder-type testcase alongside the git-type one.
+    folder_tc = tcs / "folder-0001"; folder_tc.mkdir()
+    (folder_tc / "testcase.toml").write_text("""
+[testcase]
+id = "folder-0001"
+category = "intent_translation"
+source_kind = "folder"
+task = "set attack"
+
+[verifier]
+type = "py_config"
+entry = "expected.json"
+
+[scoring]
+mode = "fields"
+""", encoding="utf-8")
+    (folder_tc / "expected.json").write_text(json.dumps({"fields": [
+        {"name": "attack", "aliases": ["attack"], "files_glob": "**/*.json",
+         "expected": 60, "tol": 1e-6, "base": 50, "must_differ_from_base": True},
+    ]}), encoding="utf-8")
+    baseline = folder_tc / "baseline"; (baseline / "data").mkdir(parents=True)
+    (baseline / "data" / "char.json").write_text(json.dumps({"attack": 50}) + "\n", encoding="utf-8")
+
+    non_git = tmp_path / "elsewhere"; non_git.mkdir()
+    monkeypatch.chdir(non_git)
+    runner = CliRunner()
+    result = runner.invoke(main, ["run", "--testcases-dir", str(tcs), "--driver", "noop"])
+
+    assert result.exit_code == 0, result.output
+    # git-type testcase reports an error row instead of crashing the run
+    assert "bench-0001" in result.output
+    assert "error" in result.output.lower()
+    # folder-type testcase still ran (noop -> fail, not skipped)
+    assert "folder-0001" in result.output
+
+
 def test_run_command_driver_requires_cmd(tmp_path, monkeypatch):
     repo, tcs = _repo_and_testcases(tmp_path)
     monkeypatch.chdir(repo)

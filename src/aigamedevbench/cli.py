@@ -73,16 +73,32 @@ def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
             click.echo(f"Testcase '{testcase_id}' not found.")
             return
 
-    # Folder-type testcases are self-contained; only git-type ones need a repo root.
+    # Folder-type testcases are self-contained and run anywhere; only git-type
+    # ones need a repo root. Resolve it lazily and tolerantly: if cwd isn't a
+    # git repo, git-type testcases fail individually (below) rather than aborting
+    # the whole batch — a non-git cwd is normal when scoring folder-type cases.
     needs_repo = any(t.source_kind != "folder" for t in testcases)
-    repo_root = get_repo_root(Path.cwd()) if needs_repo else None
+    repo_root = None
+    if needs_repo:
+        try:
+            repo_root = get_repo_root(Path.cwd())
+        except (RuntimeError, FileNotFoundError):
+            repo_root = None
 
     total = 0.0
     records = []
     for tc in testcases:
         if isinstance(drv, CommandHarnessDriver):
             drv.label = tc.id
-        result = run_testcase(repo_root, tc, drv, harness_id, config)
+        try:
+            result = run_testcase(repo_root, tc, drv, harness_id, config)
+        except Exception as e:
+            # One un-runnable testcase (e.g. a git-type case with no repo root,
+            # or a bad baseline_ref) must not kill the rest of the batch.
+            click.echo(f"{tc.id}\t{tc.category}\terror\t0.00\t{e}")
+            records.append({"testcase_id": tc.id, "category": tc.category,
+                            "score": 0.0, "status": "error", "error": str(e)})
+            continue
         total += result.score
         click.echo(f"{tc.id}\t{tc.category}\t{result.verifier_result.status}\t{result.score:.2f}")
         record = result.to_dict()
