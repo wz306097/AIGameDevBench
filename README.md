@@ -81,13 +81,20 @@ aigdbench run --testcases-dir ./testcases \
   --timeout 900 \
   --godot-binary /path/to/godot \
   --log-dir ./harness-logs \
+  --workspace-root ./bench-workspaces \
   --report ./report.json
 ```
 
 The harness's stdout/stderr go to `--log-dir`; `--report` writes a JSON summary
 (per-testcase score, status, wall_time, exit_code, log path, and overall mean).
 A harness that times out, errors, or exits non-zero scores that testcase 0 and
-the batch continues.
+the batch continues — and its log tail is printed to the screen immediately, so
+failures are visible without opening the log file.
+
+**`--workspace-root`:** by default each testcase's workspace is created under the
+OS temp dir. Some harnesses gate file edits under temp paths behind a manual
+approval prompt, which silently hangs an unattended run. Point `--workspace-root`
+at a directory your harness trusts (e.g. one inside your project) to avoid this.
 
 The manual loop still works if you prefer it: complete the task by hand, capture
 `git diff > ai.diff`, and score with `aigdbench run --driver patch --patch ai.diff`.

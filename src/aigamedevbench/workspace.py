@@ -21,9 +21,20 @@ def _rmtree(path: Path) -> None:
     shutil.rmtree(path, onerror=on_error)
 
 
+def _new_work_dir(workspace_root: Path | str | None) -> Path:
+    # An AI harness running inside the workspace may flag edits under the OS temp
+    # dir as needing manual approval (its permission gate distrusts temp paths),
+    # which silently hangs the run. --workspace-root lets the caller place
+    # workspaces under a trusted directory instead.
+    base = Path(workspace_root) if workspace_root is not None else Path(tempfile.gettempdir())
+    base.mkdir(parents=True, exist_ok=True)
+    return base / f"aigdbench_ws_{uuid.uuid4().hex}"
+
+
 @contextmanager
-def isolated_workspace(repo_root: Path, baseline_ref: str) -> Iterator[Path]:
-    work_dir = Path(tempfile.gettempdir()) / f"aigdbench_ws_{uuid.uuid4().hex}"
+def isolated_workspace(repo_root: Path, baseline_ref: str,
+                       workspace_root: Path | str | None = None) -> Iterator[Path]:
+    work_dir = _new_work_dir(workspace_root)
     git_run(["worktree", "add", "--detach", str(work_dir), baseline_ref], cwd=repo_root)
     try:
         yield work_dir
@@ -36,13 +47,14 @@ def isolated_workspace(repo_root: Path, baseline_ref: str) -> Iterator[Path]:
 
 
 @contextmanager
-def folder_workspace(baseline_dir: Path) -> Iterator[Path]:
+def folder_workspace(baseline_dir: Path,
+                     workspace_root: Path | str | None = None) -> Iterator[Path]:
     """Workspace for folder-type testcases: copy a self-contained project dir,
     init a throwaway git repo so the driver (git apply) and change detection
     (git status) work the same as the git-worktree path."""
     if not baseline_dir.is_dir():
         raise FileNotFoundError(f"baseline dir not found: {baseline_dir}")
-    work_dir = Path(tempfile.gettempdir()) / f"aigdbench_ws_{uuid.uuid4().hex}"
+    work_dir = _new_work_dir(workspace_root)
     shutil.copytree(baseline_dir, work_dir)
     git_run(["init", "-q"], cwd=work_dir)
     git_run(["add", "-A"], cwd=work_dir)

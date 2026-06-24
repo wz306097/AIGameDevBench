@@ -138,6 +138,50 @@ mode = "fields"
     assert "folder-0001" in result.output
 
 
+def test_run_command_driver_echoes_failure_log(tmp_path, monkeypatch):
+    # A non-zero harness exit must surface its log tail on screen, not just in a
+    # file, so the user sees what broke immediately.
+    repo, tcs = _repo_and_testcases(tmp_path)
+    monkeypatch.chdir(repo)
+    script = "import sys; print('BOOM diagnostic'); sys.exit(3)"
+    cmd = f'{sys.executable} -c "{script}"'
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        "run", "--testcases-dir", str(tcs),
+        "--driver", "command", "--harness-cmd", cmd,
+        "--log-dir", str(tmp_path / "logs"),
+    ])
+    assert result.exit_code == 0, result.output
+    assert "exit_code=3" in result.output
+    assert "BOOM diagnostic" in result.output
+
+
+def test_run_honors_workspace_root(tmp_path, monkeypatch):
+    # --workspace-root must place the per-testcase workspace under the given dir
+    # (so a harness that distrusts the OS temp path can run without hanging).
+    repo, tcs = _repo_and_testcases(tmp_path)
+    monkeypatch.chdir(repo)
+    wsroot = tmp_path / "trusted_ws"
+    # A fake harness that records its own cwd (== the workspace) into a file
+    # under the repo, so we can assert where the workspace was created.
+    marker = tmp_path / "where.txt"
+    script = (
+        "import os, pathlib; "
+        f"pathlib.Path(r'{marker}').write_text(os.getcwd())"
+    )
+    cmd = f'{sys.executable} -c "{script}"'
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        "run", "--testcases-dir", str(tcs),
+        "--driver", "command", "--harness-cmd", cmd,
+        "--log-dir", str(tmp_path / "logs"),
+        "--workspace-root", str(wsroot),
+    ])
+    assert result.exit_code == 0, result.output
+    where = marker.read_text(encoding="utf-8")
+    assert str(wsroot) in where, where
+
+
 def test_run_command_driver_requires_cmd(tmp_path, monkeypatch):
     repo, tcs = _repo_and_testcases(tmp_path)
     monkeypatch.chdir(repo)

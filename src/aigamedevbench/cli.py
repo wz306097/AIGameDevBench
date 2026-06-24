@@ -11,6 +11,30 @@ def _config(godot_binary: str) -> dict:
     return {"global": {"godot": {"binary": godot_binary}}}
 
 
+def _echo_harness_failure(testcase_id: str, outcome: dict, tail_lines: int = 30) -> None:
+    """Print a harness failure (timeout or non-zero exit) and its log tail to the
+    screen so problems are visible immediately instead of buried in a log file."""
+    timed_out = outcome.get("timed_out")
+    exit_code = outcome.get("exit_code", 0)
+    if not timed_out and exit_code == 0:
+        return
+    reason = "TIMEOUT" if timed_out else f"exit_code={exit_code}"
+    click.echo(f"  !! harness {reason} for {testcase_id}", err=True)
+    log_path = outcome.get("log_path")
+    if not log_path:
+        click.echo("     (no log captured - run with --log-dir to capture output)", err=True)
+        return
+    try:
+        text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        click.echo(f"     (could not read log {log_path}: {e})", err=True)
+        return
+    lines = text.splitlines()
+    click.echo(f"     log: {log_path}", err=True)
+    for line in lines[-tail_lines:]:
+        click.echo(f"     | {line}", err=True)
+
+
 @click.group()
 @click.version_option()
 def main():
@@ -41,11 +65,14 @@ def list_cmd(testcases_dir: str):
               help="Where to write harness stdout/stderr logs")
 @click.option("--report", "report_file", default=None, type=click.Path(),
               help="Write a JSON report to this path")
+@click.option("--workspace-root", "workspace_root", default=None, type=click.Path(),
+              help="Where to create per-testcase workspaces (default: OS temp dir). "
+                   "Use a path your harness trusts if it gates edits under temp.")
 @click.option("--godot-binary", default="godot", help="Godot executable for L0/runtime verifiers")
 def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
             driver: str, patch_file: str | None, harness_cmd: str | None,
             timeout: float, log_dir: str, report_file: str | None,
-            godot_binary: str):
+            workspace_root: str | None, godot_binary: str):
     """Run testcases against a harness driver (executed inside the target game repo)."""
     from aigamedevbench.testcase import discover_testcases
     from aigamedevbench.runner import run_testcase
@@ -91,7 +118,8 @@ def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
         if isinstance(drv, CommandHarnessDriver):
             drv.label = tc.id
         try:
-            result = run_testcase(repo_root, tc, drv, harness_id, config)
+            result = run_testcase(repo_root, tc, drv, harness_id, config,
+                                  workspace_root=workspace_root)
         except Exception as e:
             # One un-runnable testcase (e.g. a git-type case with no repo root,
             # or a bad baseline_ref) must not kill the rest of the batch.
@@ -101,6 +129,11 @@ def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
             continue
         total += result.score
         click.echo(f"{tc.id}\t{tc.category}\t{result.verifier_result.status}\t{result.score:.2f}")
+        # Surface harness failures on screen immediately (don't make the user dig
+        # through log files): if the command harness timed out or exited non-zero,
+        # echo the tail of its log right after the result row.
+        if isinstance(drv, CommandHarnessDriver) and drv.last_outcome is not None:
+            _echo_harness_failure(tc.id, drv.last_outcome)
         record = result.to_dict()
         if isinstance(drv, CommandHarnessDriver) and drv.last_outcome is not None:
             record.update(drv.last_outcome)

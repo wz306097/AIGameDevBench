@@ -36,21 +36,23 @@ class RunResult:
 
 
 @contextmanager
-def _workspace_for(repo_root: Path | None, testcase: Testcase):
+def _workspace_for(repo_root: Path | None, testcase: Testcase,
+                   workspace_root: Path | str | None = None):
     if testcase.source_kind == "folder":
-        with folder_workspace(testcase.dir / "baseline") as ws:
+        with folder_workspace(testcase.dir / "baseline", workspace_root) as ws:
             yield ws
     else:
         if repo_root is None:
             raise ValueError(f"git-type testcase '{testcase.id}' requires a repo root")
-        with isolated_workspace(repo_root, testcase.baseline_ref) as ws:
+        with isolated_workspace(repo_root, testcase.baseline_ref, workspace_root) as ws:
             yield ws
 
 
 def run_testcase(repo_root: Path | None, testcase: Testcase, driver: HarnessDriver,
-                 harness_id: str, config: dict | None = None) -> RunResult:
+                 harness_id: str, config: dict | None = None,
+                 workspace_root: Path | str | None = None) -> RunResult:
     config = config or {}
-    with _workspace_for(repo_root, testcase) as workspace:
+    with _workspace_for(repo_root, testcase, workspace_root) as workspace:
         driver.run(testcase.task, workspace)
 
         changed_files = _list_changed(workspace)
