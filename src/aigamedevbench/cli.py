@@ -12,13 +12,23 @@ def _config(godot_binary: str) -> dict:
 
 
 def _echo_harness_failure(testcase_id: str, outcome: dict, tail_lines: int = 30) -> None:
-    """Print a harness failure (timeout or non-zero exit) and its log tail to the
-    screen so problems are visible immediately instead of buried in a log file."""
+    """Print a harness failure (timeout, stall, approval-block, or non-zero exit)
+    and its log tail to the screen so problems are visible immediately instead of
+    buried in a log file."""
     timed_out = outcome.get("timed_out")
+    stalled = outcome.get("stalled")
+    blocked = outcome.get("blocked_on_approval")
     exit_code = outcome.get("exit_code", 0)
-    if not timed_out and exit_code == 0:
+    if not (timed_out or stalled or blocked) and exit_code == 0:
         return
-    reason = "TIMEOUT" if timed_out else f"exit_code={exit_code}"
+    if blocked:
+        reason = "BLOCKED ON APPROVAL"
+    elif stalled:
+        reason = "STALLED (no output)"
+    elif timed_out:
+        reason = "TIMEOUT"
+    else:
+        reason = f"exit_code={exit_code}"
     click.echo(f"  !! harness {reason} for {testcase_id}", err=True)
     log_path = outcome.get("log_path")
     if not log_path:
@@ -61,6 +71,9 @@ def list_cmd(testcases_dir: str):
 @click.option("--harness-cmd", "harness_cmd", default=None,
               help="Command template for --driver command, e.g. 'claude -p {task}'")
 @click.option("--timeout", default=600.0, type=float, help="Per-testcase harness timeout (s)")
+@click.option("--stall-timeout", "stall_timeout", default=120.0, type=float,
+              help="Abort a harness that produces no output for this many seconds "
+                   "(catches interactive prompts/hangs). 0 disables.")
 @click.option("--log-dir", "log_dir", default="harness-logs", type=click.Path(),
               help="Where to write harness stdout/stderr logs")
 @click.option("--report", "report_file", default=None, type=click.Path(),
@@ -68,11 +81,13 @@ def list_cmd(testcases_dir: str):
 @click.option("--workspace-root", "workspace_root", default=None, type=click.Path(),
               help="Where to create per-testcase workspaces (default: OS temp dir). "
                    "Use a path your harness trusts if it gates edits under temp.")
+@click.option("--stream/--no-stream", "stream", default=True,
+              help="Stream harness output live to the screen (default: on).")
 @click.option("--godot-binary", default="godot", help="Godot executable for L0/runtime verifiers")
 def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
             driver: str, patch_file: str | None, harness_cmd: str | None,
-            timeout: float, log_dir: str, report_file: str | None,
-            workspace_root: str | None, godot_binary: str):
+            timeout: float, stall_timeout: float, log_dir: str, report_file: str | None,
+            workspace_root: str | None, stream: bool, godot_binary: str):
     """Run testcases against a harness driver (executed inside the target game repo)."""
     from aigamedevbench.testcase import discover_testcases
     from aigamedevbench.runner import run_testcase
@@ -89,7 +104,15 @@ def run_cmd(testcases_dir: str, testcase_id: str | None, harness_id: str,
         if not harness_cmd:
             click.echo("--harness-cmd TEMPLATE required with --driver command")
             return
-        drv = CommandHarnessDriver(harness_cmd, timeout=timeout, log_dir=Path(log_dir))
+        # Stream each harness line live (prefixed) so a stuck prompt is visible
+        # the instant it appears, not after the timeout fires.
+        on_line = None
+        if stream:
+            def on_line(line: str) -> None:
+                click.echo(f"  [{drv.label}] {line}", err=True)
+        drv = CommandHarnessDriver(harness_cmd, timeout=timeout,
+                                   log_dir=Path(log_dir), stall_timeout=stall_timeout,
+                                   on_line=on_line)
     else:
         drv = NoOpDriver()
 

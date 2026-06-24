@@ -76,7 +76,7 @@ changed. Placeholders: `{task}` (the task text as one argument), `{task_file}`
 ```bash
 aigdbench run --testcases-dir ./testcases \
   --driver command \
-  --harness-cmd 'claude -p {task}' \
+  --harness-cmd 'claude -p {task} --dangerously-skip-permissions' \
   --harness my-claude-code \
   --timeout 900 \
   --godot-binary /path/to/godot \
@@ -85,16 +85,34 @@ aigdbench run --testcases-dir ./testcases \
   --report ./report.json
 ```
 
-The harness's stdout/stderr go to `--log-dir`; `--report` writes a JSON summary
-(per-testcase score, status, wall_time, exit_code, log path, and overall mean).
-A harness that times out, errors, or exits non-zero scores that testcase 0 and
-the batch continues — and its log tail is printed to the screen immediately, so
-failures are visible without opening the log file.
+**The harness must run fully autonomously.** `--driver command` runs the harness
+with no TTY and stdin closed, so any interactive prompt has no way to be
+answered. A harness that pauses for edit approval will block until it is aborted.
+Pass whatever flag puts your harness in unattended/auto-approve mode:
+
+| harness | autonomous flag |
+|---|---|
+| Claude Code | `claude -p {task} --dangerously-skip-permissions` (or `--permission-mode bypassPermissions`) |
+| Codex | `codex exec --full-auto {task}` (or `-a never`) |
+
+The harness's output is **streamed live to the screen** (prefixed with the
+testcase id) so a stuck prompt is visible the instant it appears — disable with
+`--no-stream`. Two watchdogs abort a hung harness early instead of waiting out
+the full `--timeout`: an approval-prompt detector (recognises "waiting on your
+permission approval" and similar, aborts immediately with a hint) and a
+`--stall-timeout` (default 120s with no output → abort). On any failure
+(timeout, stall, approval-block, or non-zero exit) the log tail is printed to
+the screen, the testcase scores 0, and the batch continues.
+
+Full output also goes to `--log-dir`; `--report` writes a JSON summary
+(per-testcase score, status, wall_time, exit_code, stalled/blocked flags, log
+path, and overall mean).
 
 **`--workspace-root`:** by default each testcase's workspace is created under the
-OS temp dir. Some harnesses gate file edits under temp paths behind a manual
-approval prompt, which silently hangs an unattended run. Point `--workspace-root`
-at a directory your harness trusts (e.g. one inside your project) to avoid this.
+OS temp dir. If your harness restricts which directories it will edit, point
+`--workspace-root` at a directory it trusts (e.g. one inside your project). Note
+this controls *where* the workspace is — it does not replace the autonomous-mode
+flag above.
 
 The manual loop still works if you prefer it: complete the task by hand, capture
 `git diff > ai.diff`, and score with `aigdbench run --driver patch --patch ai.diff`.

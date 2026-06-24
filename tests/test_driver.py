@@ -69,7 +69,8 @@ def test_command_driver_records_outcome(tmp_path):
     drv.label = "tc-1"
     drv.run("task", ws)
     o = drv.last_outcome
-    assert set(o) == {"exit_code", "wall_time", "timed_out", "log_path"}
+    assert set(o) == {"exit_code", "wall_time", "timed_out", "stalled",
+                      "blocked_on_approval", "log_path"}
     assert o["exit_code"] == 0
     assert o["timed_out"] is False
     assert o["wall_time"] >= 0.0
@@ -141,6 +142,51 @@ def test_command_driver_task_with_placeholder_literal_not_mangled(tmp_path):
     drv.run("update the {workspace} handling", ws)
     assert out.read_text(encoding="utf-8").splitlines() == \
         ["update the {workspace} handling"]
+
+
+def test_command_driver_aborts_on_approval_prompt(tmp_path):
+    # A harness that prints an approval-waiting line then blocks must be aborted
+    # immediately (not after the full timeout), with blocked_on_approval set.
+    ws = tmp_path / "ws"; ws.mkdir()
+    script = (
+        "import sys, time; "
+        "print('edits are queued and waiting on your permission approval'); "
+        "sys.stdout.flush(); time.sleep(60)"
+    )
+    cmd = f'{sys.executable} -c "{script}"'
+    drv = CommandHarnessDriver(cmd, timeout=30, log_dir=tmp_path / "logs",
+                               stall_timeout=20)
+    import time as _t
+    start = _t.perf_counter()
+    drv.run("task", ws)  # must not raise
+    elapsed = _t.perf_counter() - start
+    assert drv.last_outcome["blocked_on_approval"] is True
+    assert drv.last_outcome["exit_code"] == -1
+    assert elapsed < 15, "should abort well before timeout/stall"
+
+
+def test_command_driver_aborts_on_stall(tmp_path):
+    # A silent harness (no output) must be aborted by the stall watchdog before
+    # the overall timeout.
+    ws = tmp_path / "ws"; ws.mkdir()
+    cmd = f'{sys.executable} -c "import time; time.sleep(30)"'
+    drv = CommandHarnessDriver(cmd, timeout=60, log_dir=tmp_path / "logs",
+                               stall_timeout=2)
+    drv.run("task", ws)  # must not raise
+    assert drv.last_outcome["stalled"] is True
+    assert drv.last_outcome["exit_code"] == -1
+
+
+def test_command_driver_streams_lines(tmp_path):
+    # on_line is invoked live for each output line.
+    ws = tmp_path / "ws"; ws.mkdir()
+    cmd = f'{sys.executable} -c "print(chr(104)+chr(105))"'  # prints "hi"
+    got = []
+    drv = CommandHarnessDriver(cmd, timeout=30, log_dir=tmp_path / "logs",
+                               on_line=got.append)
+    drv.run("task", ws)
+    assert "hi" in got
+    assert drv.last_outcome["exit_code"] == 0
 
 
 def test_command_driver_no_shell_injection(tmp_path):
